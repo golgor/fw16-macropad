@@ -3,7 +3,7 @@
 # Build the padctl keymap against Framework's QMK fork at the pinned commit.
 # Output: firmware/build/framework_macropad_padctl.uf2. Flashing is manual.
 #
-# Needs: git, make, python3 + pip (QMK's requirements.txt is installed;
+# Needs: git, make, python3 + pip (the qmk CLI and QMK requirements are installed;
 # set PIP_FLAGS=--break-system-packages on distro Pythons),
 # arm-none-eabi-gcc + newlib. QMK checkout is cached in $QMK_DIR.
 set -euo pipefail
@@ -24,7 +24,7 @@ if [[ "$(git -C "$QMK_DIR" rev-parse -q --verify HEAD || true)" != "$COMMIT" ]];
 fi
 git -C "$QMK_DIR" submodule update -q --init --recursive --depth 1
 
-python3 -m pip install -q -r "$QMK_DIR/requirements.txt" ${PIP_FLAGS:-}
+python3 -m pip install -q qmk -r "$QMK_DIR/requirements.txt" ${PIP_FLAGS:-}
 
 keymap="$QMK_DIR/keyboards/framework/macropad/keymaps/padctl"
 rm -rf "$keymap"
