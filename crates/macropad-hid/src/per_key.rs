@@ -96,4 +96,14 @@ impl<T: Transport> PerKeyLeds<'_, T> {
     pub fn clear_all(&mut self) -> Result<(), HidError> {
         self.ack(Command::ClearAllKeys)
     }
+
+    /// Exclusive mode (firmware default, on): while any override is active,
+    /// keys without one are dark. Off: overrides overlay the running effect.
+    /// RAM-only, resets to on at power-up.
+    ///
+    /// # Errors
+    /// [`HidError`] on transport or protocol failure.
+    pub fn set_exclusive(&mut self, exclusive: bool) -> Result<(), HidError> {
+        self.ack(Command::SetExclusive(exclusive))
+    }
 }

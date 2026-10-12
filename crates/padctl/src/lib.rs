@@ -78,6 +78,22 @@ pub enum Key {
     },
     /// Remove overrides so keys show the global effect again.
     Clear(ClearArgs),
+    /// While overrides are active: `exclusive` (default) darkens all other
+    /// keys, `overlay` leaves the global effect running underneath.
+    Mode {
+        /// Mode.
+        #[arg(value_enum)]
+        mode: KeyMode,
+    },
+}
+
+/// Per-key display mode.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum KeyMode {
+    /// Only overridden keys are lit.
+    Exclusive,
+    /// Overrides on top of the global effect.
+    Overlay,
 }
 
 /// Arguments of `padctl key clear`.
@@ -170,6 +186,7 @@ pub fn run<B: Backend>(cli: &Cli, backend: &B, out: &mut impl Write) -> Result<(
                     }
                 }
                 Key::Clear(ClearArgs { all: true, .. }) => leds.clear_all()?,
+                Key::Mode { mode } => leds.set_exclusive(matches!(mode, KeyMode::Exclusive))?,
                 Key::Clear(ClearArgs { keys, .. }) => {
                     for &k in keys {
                         leds.clear(k)?;

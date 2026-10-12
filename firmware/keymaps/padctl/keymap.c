@@ -128,6 +128,7 @@ enum padctl_value_id {
     padctl_set_many  = 0x03, // set: count (key r g b) * count, count 1..7
     padctl_clear_all = 0x04, // set: -
     padctl_clear_key = 0x05, // set: key
+    padctl_set_exclusive = 0x06, // set: 0 overlay, 1 exclusive (default)
 };
 
 #define PADCTL_KEYS 24
@@ -147,18 +148,36 @@ static const uint8_t padctl_key_pos[PADCTL_KEYS][2] = {
 
 static uint8_t  padctl_rgb[PADCTL_KEYS][3];
 static uint32_t padctl_active; // bit n set: key n is overridden
+// Exclusive (default): while any override is active, every other LED is
+// painted black so only overridden keys are lit, whatever the effect.
+static bool padctl_exclusive = true;
+// The matrix was off and we switched it on for overrides. When the last
+// override clears we switch it off again, unless the user picked an effect
+// in between (mode changed).
+static bool    padctl_enabled_by_us;
+static uint8_t padctl_enabled_mode;
+
+static void padctl_after_change(void) {
+    if (padctl_active && !rgb_matrix_is_enabled()) {
+        rgb_matrix_enable_noeeprom();
+        padctl_enabled_by_us = true;
+        padctl_enabled_mode  = rgb_matrix_get_mode();
+    } else if (!padctl_active && padctl_enabled_by_us) {
+        padctl_enabled_by_us = false;
+        if (rgb_matrix_is_enabled() && rgb_matrix_get_mode() == padctl_enabled_mode) {
+            rgb_matrix_disable_noeeprom();
+        }
+    }
+}
 
 static void padctl_set(uint8_t key, const uint8_t *rgb) {
     padctl_rgb[key][0] = rgb[0];
     padctl_rgb[key][1] = rgb[1];
     padctl_rgb[key][2] = rgb[2];
     padctl_active |= (1UL << key);
-    // Overrides are drawn by the indicator hook, which only runs while the
-    // matrix is on. An explicit per-key request turns it on (not persisted).
-    if (!rgb_matrix_is_enabled()) {
-        rgb_matrix_enable_noeeprom();
-    }
 }
+
+static bool padctl_set_handle(uint8_t value, uint8_t *args);
 
 static bool padctl_handle(uint8_t command, uint8_t value, uint8_t *args) {
     if (command == id_custom_get_value) {
@@ -170,6 +189,14 @@ static bool padctl_handle(uint8_t command, uint8_t value, uint8_t *args) {
         return true;
     }
     if (command != id_custom_set_value) return false; // no save: never persist
+    // Overrides are drawn by the indicator hook, which only runs while the
+    // matrix is on, so changes may toggle it (never persisted).
+    bool ok = padctl_set_handle(value, args);
+    if (ok) padctl_after_change();
+    return ok;
+}
+
+static bool padctl_set_handle(uint8_t value, uint8_t *args) {
     switch (value) {
         case padctl_set_key:
             if (args[0] >= PADCTL_KEYS) return false;
@@ -193,6 +220,10 @@ static bool padctl_handle(uint8_t command, uint8_t value, uint8_t *args) {
             if (args[0] >= PADCTL_KEYS) return false;
             padctl_active &= ~(1UL << args[0]);
             return true;
+        case padctl_set_exclusive:
+            if (args[0] > 1) return false;
+            padctl_exclusive = args[0];
+            return true;
         default:
             return false;
     }
@@ -206,6 +237,12 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
 }
 
 bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
+    if (!padctl_active) return false;
+    if (padctl_exclusive) {
+        for (uint8_t led = led_min; led < led_max; led++) {
+            rgb_matrix_set_color(led, 0, 0, 0);
+        }
+    }
     for (uint8_t key = 0; key < PADCTL_KEYS; key++) {
         if (!(padctl_active & (1UL << key))) continue;
         uint8_t led = g_led_config.matrix_co[padctl_key_pos[key][0]][padctl_key_pos[key][1]];

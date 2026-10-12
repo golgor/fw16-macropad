@@ -84,6 +84,9 @@ pub enum Command {
     ClearKey(KeyId),
     /// Drop every override.
     ClearAllKeys,
+    /// Exclusive mode (default on): while any override is active, every
+    /// other key is dark. Off: overrides sit on top of the running effect.
+    SetExclusive(bool),
 }
 
 /// A decoded reply.
@@ -156,6 +159,7 @@ impl Command {
             Self::SetMany(_) => ([CUSTOM_SET_VALUE, perkey::CHANNEL, pk::SET_MANY], 3),
             Self::ClearKey(_) => ([CUSTOM_SET_VALUE, perkey::CHANNEL, pk::CLEAR_KEY], 3),
             Self::ClearAllKeys => ([CUSTOM_SET_VALUE, perkey::CHANNEL, pk::CLEAR_ALL], 3),
+            Self::SetExclusive(_) => ([CUSTOM_SET_VALUE, perkey::CHANNEL, pk::SET_EXCLUSIVE], 3),
         };
         (bytes, len)
     }
@@ -177,6 +181,7 @@ impl Command {
             }
             Self::SetMany(batch) => batch.write(args),
             Self::ClearKey(key) => args[0] = key.index(),
+            Self::SetExclusive(on) => args[0] = u8::from(on),
             Self::GetProtocolVersion
             | Self::GetBrightness
             | Self::GetEffect
@@ -236,7 +241,8 @@ impl Command {
             | Self::SetKey(..)
             | Self::SetMany(_)
             | Self::ClearKey(_)
-            | Self::ClearAllKeys => Response::Ack,
+            | Self::ClearAllKeys
+            | Self::SetExclusive(_) => Response::Ack,
         })
     }
 
@@ -277,6 +283,11 @@ impl Command {
             (CUSTOM_SET_VALUE, perkey::CHANNEL, pk::SET_MANY) => Self::SetMany(KeyBatch::parse(a)?),
             (CUSTOM_SET_VALUE, perkey::CHANNEL, pk::CLEAR_KEY) => Self::ClearKey(key(a[0])?),
             (CUSTOM_SET_VALUE, perkey::CHANNEL, pk::CLEAR_ALL) => Self::ClearAllKeys,
+            (CUSTOM_SET_VALUE, perkey::CHANNEL, pk::SET_EXCLUSIVE) => match a[0] {
+                0 => Self::SetExclusive(false),
+                1 => Self::SetExclusive(true),
+                _ => return None,
+            },
             _ => return None,
         })
     }
@@ -413,6 +424,8 @@ mod tests {
             ),
             (Command::ClearAllKeys, bytes(&[0x07, 0x00, 0x04])),
             (Command::ClearKey(k(23)), bytes(&[0x07, 0x00, 0x05, 23])),
+            (Command::SetExclusive(true), bytes(&[0x07, 0x00, 0x06, 1])),
+            (Command::SetExclusive(false), bytes(&[0x07, 0x00, 0x06, 0])),
         ];
         for (command, expected) in cases {
             assert_eq!(command.encode().0, expected, "{command:?}");
@@ -527,6 +540,7 @@ mod tests {
             Command::SetMany(batch),
             Command::ClearKey(key),
             Command::ClearAllKeys,
+            Command::SetExclusive(true),
         ];
         for command in all {
             assert_ne!(command.encode().0[0], 0x0B, "{command:?}");

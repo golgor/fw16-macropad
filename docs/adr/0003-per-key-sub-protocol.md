@@ -18,11 +18,15 @@ Stock firmware can only light all keys alike. The notification use case needs in
    | `0x03` set many | `0x07` | `n (key r g b)*n`, `n` 1..7 | echo |
    | `0x04` clear all | `0x07` | - | echo |
    | `0x05` clear key | `0x07` | `key` | echo |
+   | `0x06` set exclusive | `0x07` | `0` overlay / `1` exclusive | echo |
 
    Invalid value ids, keys or counts get `0xFF` in byte 0. `0x09` (save) is not handled: overrides are RAM-only.
 3. Keys are host `KeyId`s (row-major from the top left, in `LAYOUT` order). The firmware maps them to switch-matrix positions and reads the LED index from `g_led_config`, so LED wiring stays Framework's business.
 4. Host: `Macropad::per_key()` probes and returns a `PerKeyLeds` capability handle. Stock firmware yields `HidError::NoPerKey`, so per-key calls cannot be made without a positive probe. The probe checks the `pd` magic and the version.
-5. Setting an override turns the RGB matrix on (not persisted) if it was off, since indicators only paint while it runs. Unoverridden keys show the current effect.
+5. Exclusive mode, on by default (version 2): while any override is active the painter blacks out every LED, then paints the overridden ones, so only those keys are lit whatever the global effect. `0x06 0` switches to overlay (overrides on top of the running effect). The mode is RAM-only and resets to exclusive on power-up.
+6. Indicators only paint while the RGB matrix runs. If it is off when the first override arrives, the firmware turns it on (not persisted) and remembers that; when the last override clears it turns it off again, unless the effect was changed in between. With overrides cleared, the normal effect returns unchanged.
+
+Revision (2026-10-12, v2): hardware test showed v1 lighting every key in the stock solid colour after `light off` + `key set`, because enabling the matrix revived the effect underneath. Exclusive mode and the restore step fix that; the version bump makes the host refuse v1 firmware.
 
 ## Consequences
 

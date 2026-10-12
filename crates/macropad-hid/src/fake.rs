@@ -39,6 +39,11 @@ pub struct FakeDevice {
     /// `Some` when emulating the padctl firmware: its per-key overrides,
     /// indexed by [`KeyId::index`].
     pub overrides: Option<[Option<Rgb>; KEY_COUNT as usize]>,
+    /// Per-key exclusive mode (padctl firmware default: on).
+    pub exclusive: bool,
+    /// Matrix was switched on only because of overrides; restore off when
+    /// the last override clears (mirrors `keymap.c`).
+    pub enabled_by_overrides: bool,
     /// Every request seen, for byte-level assertions.
     pub requests: Vec<Report>,
 }
@@ -61,6 +66,8 @@ impl FakeDevice {
             sat: 0,
             saves: 0,
             overrides: None,
+            exclusive: true,
+            enabled_by_overrides: false,
             requests: Vec::new(),
         }
     }
@@ -80,6 +87,36 @@ impl FakeDevice {
         self.overrides?[usize::from(key.index())]
     }
 
+    /// What `key` shows, as the firmware paints it: its override, black in
+    /// exclusive mode while another override is active or when the matrix
+    /// is off, `None` meaning "whatever the effect draws".
+    #[must_use]
+    pub fn shown(&self, key: KeyId) -> Option<Rgb> {
+        const BLACK: Rgb = Rgb { r: 0, g: 0, b: 0 };
+        if self.effect == Effect::OFF {
+            return Some(BLACK);
+        }
+        let overrides = self.overrides?;
+        match overrides[usize::from(key.index())] {
+            Some(rgb) => Some(rgb),
+            None if self.exclusive && overrides.iter().any(Option::is_some) => Some(BLACK),
+            None => None,
+        }
+    }
+
+    fn after_override_change(&mut self) {
+        let any = self
+            .overrides
+            .is_some_and(|o| o.iter().any(Option::is_some));
+        if any && self.effect == Effect::OFF {
+            self.effect = Effect::SOLID_COLOR;
+            self.enabled_by_overrides = true;
+        } else if !any && self.enabled_by_overrides {
+            self.effect = Effect::OFF;
+            self.enabled_by_overrides = false;
+        }
+    }
+
     fn handle(&mut self, command: Command) -> Option<Response> {
         use Command as C;
         Some(match command {
@@ -91,6 +128,7 @@ impl FakeDevice {
             C::GetBrightness => Response::Brightness(self.brightness),
             C::SetEffect(e) => {
                 self.effect = e;
+                self.enabled_by_overrides = false;
                 Response::Ack
             }
             C::GetEffect => Response::Effect(self.effect),
@@ -137,6 +175,11 @@ impl FakeDevice {
                 *self.overrides.as_mut()? = [None; KEY_COUNT as usize];
                 Response::Ack
             }
+            C::SetExclusive(on) => {
+                self.overrides?;
+                self.exclusive = on;
+                Response::Ack
+            }
         })
     }
 }
@@ -169,7 +212,19 @@ impl Transport for FakeDevice {
     fn exchange(&mut self, request: &Report) -> Result<Report, HidError> {
         self.requests.push(*request);
         let reply = Command::parse(request)
-            .and_then(|command| Some(command.reply(self.handle(command)?)))
+            .and_then(|command| {
+                let response = self.handle(command)?;
+                if matches!(
+                    command,
+                    Command::SetKey(..)
+                        | Command::SetMany(_)
+                        | Command::ClearKey(_)
+                        | Command::ClearAllKeys
+                ) {
+                    self.after_override_change();
+                }
+                Some(command.reply(response))
+            })
             .unwrap_or_else(|| unhandled(request));
         Ok(reply)
     }
@@ -221,6 +276,35 @@ mod tests {
         assert!(matches!(pad.per_key(), Err(HidError::NoPerKey(_))));
         // The pad stays usable for global lighting after a failed probe.
         pad.set_brightness(10).unwrap();
+    }
+
+    /// Robert's hardware bug: after `light off`, `key set red 0 1` lit every
+    /// key red. Exclusive mode must keep the others dark and restore off.
+    #[test]
+    fn overrides_after_light_off_light_only_their_keys() {
+        let mut pad = Macropad::new(FakeDevice::padctl("f"));
+        pad.set_solid(RED).unwrap();
+        pad.set_effect(Effect::OFF).unwrap();
+        pad.per_key()
+            .unwrap()
+            .set_many(&[(k(0), RED), (k(1), RED)])
+            .unwrap();
+        let dev = pad.transport();
+        assert_eq!(dev.shown(k(0)), Some(RED));
+        assert_eq!(dev.shown(k(2)), Some(Rgb { r: 0, g: 0, b: 0 }));
+        pad.per_key().unwrap().clear_all().unwrap();
+        assert_eq!(pad.transport().effect, Effect::OFF);
+    }
+
+    #[test]
+    fn overlay_mode_keeps_effect_and_restores_nothing_it_did_not_change() {
+        let mut pad = Macropad::new(FakeDevice::padctl("f"));
+        let mut leds = pad.per_key().unwrap();
+        leds.set_exclusive(false).unwrap();
+        leds.set(k(0), RED).unwrap();
+        assert_eq!(pad.transport().shown(k(2)), None);
+        pad.per_key().unwrap().clear(k(0)).unwrap();
+        assert_eq!(pad.transport().effect, Effect::SOLID_COLOR);
     }
 
     #[test]

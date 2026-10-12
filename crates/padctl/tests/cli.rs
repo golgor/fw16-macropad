@@ -27,7 +27,7 @@ fn info_reports_via_protocol_and_per_key_support() {
     );
     assert_eq!(
         invoke(&["info"], &padctl_fw()).unwrap(),
-        "via_protocol: 12\nper_key: v1 (24 keys)\n"
+        "via_protocol: 12\nper_key: v2 (24 keys)\n"
     );
 }
 
@@ -77,6 +77,9 @@ fn key_commands_need_padctl_firmware() {
     invoke(&["key", "set", "--color", "#0000ff", "5"], &b).unwrap();
     invoke(&["key", "clear", "0"], &b).unwrap();
     invoke(&["key", "clear", "--all"], &b).unwrap();
+    invoke(&["key", "mode", "overlay"], &b).unwrap();
+    invoke(&["key", "mode", "exclusive"], &b).unwrap();
+    assert!(invoke(&["key", "mode", "x"], &b).is_err());
 }
 
 #[test]

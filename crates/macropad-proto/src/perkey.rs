@@ -31,6 +31,9 @@ pub(crate) mod value {
     pub const CLEAR_ALL: u8 = 0x04;
     /// Set: drop one override `[key]`.
     pub const CLEAR_KEY: u8 = 0x05;
+    /// Set: `[exclusive]`, 1 (default) blanks non-overridden keys while any
+    /// override is active, 0 overlays overrides on the running effect.
+    pub const SET_EXCLUSIVE: u8 = 0x06;
 }
 
 /// Magic in probe replies, ASCII `pd`, so an unrelated firmware that happens to
@@ -38,7 +41,7 @@ pub(crate) mod value {
 pub(crate) const MAGIC: [u8; 2] = *b"pd";
 
 /// Sub-protocol version this crate speaks.
-pub const PER_KEY_PROTOCOL_VERSION: u8 = 1;
+pub const PER_KEY_PROTOCOL_VERSION: u8 = 2;
 
 /// Bytes before the first `(key, r, g, b)` entry of a `SetMany` request.
 const SET_MANY_HEADER: usize = 4;
