@@ -1,0 +1,22 @@
+# padd: macropad daemon (layer 3, design). User unit.
+# Install: cp contrib/systemd/padd.service ~/.config/systemd/user/
+#          systemctl --user daemon-reload && systemctl --user enable --now padd
+[Unit]
+Description=Framework 16 RGB Macropad daemon (padd)
+Documentation=https://github.com/golgor/fw16-macropad/blob/main/docs/adr/0004-layer-3-daemon-and-claims.md
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/padd
+Restart=on-failure
+RestartSec=2
+# padd only needs its own socket dir and the device nodes (uaccess via udev).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+
+[Install]
+WantedBy=graphical-session.target

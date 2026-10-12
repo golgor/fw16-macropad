@@ -17,6 +17,8 @@ Each layer is finished, tested and reviewed before the next starts.
 3. **Simple API.** A small typed surface over layer 2, for example "set these keys to this colour", independent of how the firmware does it.
 4. **Dynamic use cases.** evdev input (grabbed by `32ac:0013`), a daemon that hands out keys to clients and routes presses back, notifications as the first client.
 
+Layer 3 (in design): `padd` daemon owning LEDs and the grabbed input device, JSON-lines socket, `padctl claim`. See [ADR 0004](docs/adr/0004-layer-3-daemon-and-claims.md) and [docs/protocol.md](docs/protocol.md).
+
 ## Architecture
 
 ```mermaid

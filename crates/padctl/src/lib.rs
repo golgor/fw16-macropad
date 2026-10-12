@@ -1,6 +1,8 @@
 //! `padctl` command logic, generic over [`Backend`] so it runs against real
 //! hardware in `main` and against the fake backend in tests.
 
+pub mod claim;
+
 use std::io::Write;
 
 use anyhow::{Context, Result, bail};
@@ -124,14 +126,14 @@ pub struct ClearArgs {
     all: bool,
 }
 
-fn parse_key(s: &str) -> Result<KeyId, String> {
+pub(crate) fn parse_key(s: &str) -> Result<KeyId, String> {
     let n: u8 = s
         .parse()
         .map_err(|_| format!("{s:?} is not a key number"))?;
     KeyId::new(n).map_err(|e| e.to_string())
 }
 
-fn parse_rgb(s: &str) -> Result<Rgb, String> {
+pub(crate) fn parse_rgb(s: &str) -> Result<Rgb, String> {
     let named = match s {
         "red" => Some((255, 0, 0)),
         "green" => Some((0, 255, 0)),

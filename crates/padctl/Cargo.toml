@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 macropad-hid.workspace = true
 macropad-proto.workspace = true
+macropad-client.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
