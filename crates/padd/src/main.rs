@@ -18,6 +18,9 @@ struct Args {
     /// Socket path (default: `$XDG_RUNTIME_DIR/padd.sock`).
     #[arg(long)]
     socket: Option<PathBuf>,
+    /// Log every key press (claimed, unclaimed, swallowed while paused).
+    #[arg(long, env = "PADD_DEBUG")]
+    debug: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -31,9 +34,16 @@ fn main() -> anyhow::Result<()> {
     let input = Box::new(move || {
         EvdevSource::discover(&keymap).map(|s| Box::new(s) as Box<dyn EventSource>)
     });
-    let (handle, main) = Daemon::new(Config::new(socket.clone()), leds, Ignore)
-        .spawn(input)
-        .with_context(|| format!("starting padd on {}", socket.display()))?;
+    let (handle, main) = Daemon::new(
+        Config {
+            debug: args.debug,
+            ..Config::new(socket.clone())
+        },
+        leds,
+        Ignore,
+    )
+    .spawn(input)
+    .with_context(|| format!("starting padd on {}", socket.display()))?;
     eprintln!("padd: listening on {}", socket.display());
 
     let mut signals = signal_hook::iterator::Signals::new([SIGTERM, SIGINT])?;

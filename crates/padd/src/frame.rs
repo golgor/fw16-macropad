@@ -33,6 +33,11 @@ pub trait LedSink: Send {
     /// it in `status` and retries.
     fn show(&mut self, frame: &Frame) -> Result<(), String>;
 
+    /// Forget what the device is believed to show, so the next
+    /// [`show`](Self::show) repaints everything. Called on resume, because
+    /// another writer (`padctl --force`, VIA) may have changed the device.
+    fn invalidate(&mut self) {}
+
     /// Called once on shutdown: leave the pad dark and without overrides.
     fn shutdown(&mut self) {
         let _ = self.show(&Frame::default());

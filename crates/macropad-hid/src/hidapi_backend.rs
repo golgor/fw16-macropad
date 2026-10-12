@@ -65,6 +65,24 @@ pub struct HidapiTransport {
     device: HidDevice,
 }
 
+/// Upper bound on stale reports dropped before one request.
+const MAX_STALE: usize = 64;
+
+impl HidapiTransport {
+    /// Drop input reports already queued on this handle. Every open hidraw
+    /// node receives every reply, so replies to another process's requests
+    /// (`padctl --force` next to padd) would otherwise be read as ours and
+    /// shift every later reply by one.
+    fn drain(&mut self) {
+        let mut stale = [0u8; REPORT_LEN];
+        for _ in 0..MAX_STALE {
+            if !matches!(self.device.read_timeout(&mut stale, 0), Ok(n) if n > 0) {
+                break;
+            }
+        }
+    }
+}
+
 impl Transport for HidapiTransport {
     fn send(&mut self, request: &Report) -> Result<(), HidError> {
         // hidapi wants the report id first; QMK Raw HID uses id 0.
@@ -75,6 +93,7 @@ impl Transport for HidapiTransport {
     }
 
     fn exchange(&mut self, request: &Report) -> Result<Report, HidError> {
+        self.drain();
         self.send(request)?;
 
         let mut reply = Report::zeroed();

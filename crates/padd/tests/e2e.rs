@@ -14,19 +14,60 @@ const RED: Rgb = Rgb { r: 255, g: 0, b: 0 };
 const BLUE: Rgb = Rgb { r: 0, g: 0, b: 255 };
 const WAIT: Option<Duration> = Some(Duration::from_secs(5));
 
+/// Fake LEDs that behave like `HidLeds`: a diff cache over a device whose
+/// state can change behind padd's back (`wipe`) or fail (`fail`).
 #[derive(Clone, Default)]
-struct Leds(Arc<Mutex<Frame>>);
+struct Leds(Arc<Mutex<LedState>>);
+
+#[derive(Default)]
+struct LedState {
+    device: Frame,
+    cache: Option<Frame>,
+    fail: bool,
+    invalidations: usize,
+}
 
 impl LedSink for Leds {
     fn show(&mut self, frame: &Frame) -> Result<(), String> {
-        *self.0.lock().unwrap() = *frame;
+        let mut s = self.0.lock().unwrap();
+        if s.fail {
+            s.cache = None; // like HidLeds dropping the handle
+            return Err("reply header does not echo request".into());
+        }
+        match s.cache {
+            None => s.device = *frame,
+            Some(cache) => {
+                for i in 0..24 {
+                    if frame.0[i] != cache.0[i] {
+                        s.device.0[i] = frame.0[i];
+                    }
+                }
+            }
+        }
+        s.cache = Some(*frame);
         Ok(())
+    }
+
+    fn invalidate(&mut self) {
+        let mut s = self.0.lock().unwrap();
+        s.cache = None;
+        s.invalidations += 1;
     }
 }
 
 impl Leds {
     fn get(&self, key: u8) -> Option<Rgb> {
-        self.0.lock().unwrap().get(k(key))
+        self.0.lock().unwrap().device.get(k(key))
+    }
+    /// Another writer cleared the device; padd's cache does not know.
+    fn wipe(&self) {
+        self.0.lock().unwrap().device = Frame::default();
+    }
+    fn set_fail(&self, fail: bool) {
+        self.0.lock().unwrap().fail = fail;
+    }
+    fn invalidations(&self) -> usize {
+        self.0.lock().unwrap().invalidations
     }
 }
 
@@ -251,4 +292,50 @@ fn missing_daemon_is_reported() {
         Client::connect(&dir.path().join("padd.sock"), "x"),
         Err(ClientError::NoDaemon(_))
     ));
+}
+
+/// Regression (hardware, PR #3): after pause/resume the claim must be lit
+/// again even if the device lost its state while padd thought it was lit.
+#[test]
+fn resume_repaints_the_full_frame() {
+    let h = start();
+    let mut c = h.client("agent");
+    let mut ctl = h.client("padctl");
+    c.claim(&ClaimSpec::new(vec![k(0), k(5)], RED)).unwrap();
+    h.wait_leds(0, Some(RED));
+    h.leds.wipe();
+    ctl.pause().unwrap();
+    h.wait_leds(0, None);
+    h.leds.wipe();
+    ctl.resume().unwrap();
+    h.wait_leds(0, Some(RED));
+    h.wait_leds(5, Some(RED));
+    assert_eq!(h.leds.invalidations(), 1);
+}
+
+/// LED failure (e.g. interleaved replies from `padctl --force`): padd marks
+/// the device unavailable, retries after the backoff and repaints everything.
+#[test]
+fn led_recovery_repaints_the_full_frame() {
+    let h = start();
+    let mut c = h.client("agent");
+    c.claim(&ClaimSpec::new(vec![k(2)], RED)).unwrap();
+    h.wait_leds(2, Some(RED));
+    h.leds.set_fail(true);
+    h.leds.wipe();
+    // A change while failing: padd notices and goes unavailable.
+    let second = c.claim(&ClaimSpec::new(vec![k(3)], RED)).unwrap();
+    assert_eq!(
+        c.next_event(WAIT).unwrap(),
+        Some(ServerMsg::Device { present: false })
+    );
+    h.leds.set_fail(false);
+    assert_eq!(
+        c.next_event(WAIT).unwrap(),
+        Some(ServerMsg::Device { present: true })
+    );
+    h.wait_leds(2, Some(RED));
+    h.wait_leds(3, Some(RED));
+    c.release(second).unwrap();
+    h.wait_leds(3, None);
 }

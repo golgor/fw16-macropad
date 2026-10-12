@@ -115,6 +115,7 @@ sequenceDiagram
 | Grab fails (another grabber) | Treated like an absent pad; logged and retried with backoff |
 | Stock firmware (no `per_key`) | padd keeps running; `status` shows `device_error`, presses still route, LEDs retried with backoff |
 | v2 firmware | Codes are not in the v3 keymap and get ignored; flash v3 |
+| Another writer (`padctl --force`, VIA app) | Every hidraw handle receives every reply, so padd drops queued stale reports before each request. If the device state still drifts, a failed exchange makes padd reopen, invalidate its LED cache and repaint the full frame (exclusive mode, clear, effect off, all claimed keys). `resume` always does the same full repaint |
 | Malformed client line | `error bad_request`; connection kept unless the line is oversized |
 
 ## Rejected

@@ -94,7 +94,7 @@ Keys are numbered 0-23 row-major from the top left. Nothing is saved to EEPROM e
 mise run install                                   # padctl + padd into ~/.cargo/bin
 mkdir -p ~/.config/systemd/user && cp contrib/systemd/padd.service ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now padd
-journalctl --user -u padd -f                       # logs
+journalctl --user -u padd -f                       # logs (PADD_DEBUG=1 or --debug logs every press)
 padctl status                                      # device, paused, claims
 ```
 

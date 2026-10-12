@@ -38,6 +38,8 @@ pub struct Config {
     pub reconnect_backoff: Duration,
     /// Reported in `status`.
     pub version: String,
+    /// Log every press, including unclaimed and swallowed ones.
+    pub debug: bool,
 }
 
 impl Config {
@@ -49,6 +51,7 @@ impl Config {
             max_claims_per_conn: 32,
             reconnect_backoff: Duration::from_secs(2),
             version: env!("CARGO_PKG_VERSION").to_owned(),
+            debug: false,
         }
     }
 }
@@ -454,6 +457,9 @@ impl<L: LedSink + 'static, U: UnclaimedPress + Send + 'static> Daemon<L, U> {
             self.paused = paused;
             eprintln!("padd: {}", if paused { "paused" } else { "resumed" });
             self.broadcast(&ServerMsg::Pause { paused });
+            if !paused {
+                self.leds.invalidate();
+            }
             self.paint();
         }
     }
@@ -489,10 +495,30 @@ impl<L: LedSink + 'static, U: UnclaimedPress + Send + 'static> Daemon<L, U> {
     }
 
     fn key(&mut self, event: KeyEvent) {
-        if event.action != KeyAction::Pressed || self.paused {
-            return; // presses only; paused swallows everything
+        if event.action != KeyAction::Pressed {
+            return; // presses only
         }
-        match self.claims.route(event.key) {
+        if self.paused {
+            if self.config.debug {
+                eprintln!(
+                    "padd: key {} pressed while paused (swallowed)",
+                    event.key.index()
+                );
+            }
+            return;
+        }
+        let route = self.claims.route(event.key);
+        if self.config.debug {
+            match route {
+                Some((_, claim)) => eprintln!(
+                    "padd: key {} pressed -> claim {}",
+                    event.key.index(),
+                    claim.0
+                ),
+                None => eprintln!("padd: key {} pressed, unclaimed", event.key.index()),
+            }
+        }
+        match route {
             Some((owner, claim)) => self.send(
                 owner,
                 &ServerMsg::Press {
