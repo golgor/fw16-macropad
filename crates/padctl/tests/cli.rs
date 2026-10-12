@@ -7,7 +7,7 @@ use padctl::{Cli, run};
 fn invoke(args: &[&str], backend: &FakeBackend) -> anyhow::Result<String> {
     let cli = Cli::try_parse_from(std::iter::once("padctl").chain(args.iter().copied()))?;
     let mut out = Vec::new();
-    run(&cli, backend, &mut out)?;
+    run(&cli, backend, &mut out, &mut |_| Ok(false))?;
     Ok(String::from_utf8(out)?)
 }
 
@@ -88,4 +88,41 @@ fn key_arguments_are_validated() {
     assert!(invoke(&["key", "clear"], &padctl_fw()).is_err());
     assert!(invoke(&["key", "clear", "--all", "3"], &padctl_fw()).is_err());
     assert!(invoke(&["key", "set", "-c", "nope", "1"], &padctl_fw()).is_err());
+}
+
+#[test]
+fn bootloader_needs_confirmation() {
+    let err = invoke(&["bootloader"], &stock()).unwrap_err();
+    assert!(err.to_string().contains("--yes"), "{err}");
+    assert_eq!(
+        invoke(&["bootloader", "--yes"], &stock()).unwrap(),
+        "bootloader: jump sent, look for the RPI-RP2 drive\n"
+    );
+}
+
+#[test]
+fn confirmed_bootloader_sends_exactly_the_jump() {
+    let cli = Cli::try_parse_from(["padctl", "bootloader"]).unwrap();
+    let mut asked = 0;
+    let mut out = Vec::new();
+    run(&cli, &stock(), &mut out, &mut |_| {
+        asked += 1;
+        Ok(true)
+    })
+    .unwrap();
+    assert_eq!(asked, 1);
+}
+
+#[test]
+fn completions_and_man_render() {
+    let bash = invoke(&["completions", "bash"], &FakeBackend::default()).unwrap();
+    assert!(bash.contains("padctl"));
+    let man = invoke(&["man"], &FakeBackend::default()).unwrap();
+    assert!(man.contains(".TH padctl"));
+}
+
+#[test]
+fn version_is_set() {
+    let err = Cli::try_parse_from(["padctl", "--version"]).unwrap_err();
+    assert!(err.to_string().starts_with("padctl 0.1.0"), "{err}");
 }

@@ -3,14 +3,15 @@
 
 use std::io::Write;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
+use clap::CommandFactory;
 use clap::{Args, Parser, Subcommand};
 use macropad_hid::{Backend, HidError, Macropad, Transport};
 use macropad_proto::{Effect, KeyId, Rgb};
 
 /// Control the Framework 16 RGB Macropad.
 #[derive(Debug, Parser)]
-#[command(version, about)]
+#[command(version = env!("PADCTL_VERSION"), about)]
 pub struct Cli {
     /// What to do.
     #[command(subcommand)]
@@ -30,6 +31,21 @@ pub enum Cmd {
     /// Per-key colour overrides (needs the padctl firmware). Never saved.
     #[command(subcommand)]
     Key(Key),
+    /// Reboot the macropad into its UF2 bootloader (RPI-RP2 drive) for
+    /// flashing. Uses Framework's factory command 0x0B, like
+    /// `qmk_hid via --bootloader`.
+    Bootloader {
+        /// Do not ask for confirmation.
+        #[arg(long, short)]
+        yes: bool,
+    },
+    /// Print a shell completion script to stdout.
+    Completions {
+        /// Target shell.
+        shell: clap_complete::Shell,
+    },
+    /// Print the man page (roff) to stdout.
+    Man,
 }
 
 /// `padctl light ...`
@@ -144,8 +160,32 @@ fn parse_rgb(s: &str) -> Result<Rgb, String> {
 ///
 /// # Errors
 /// Any discovery, transport, or protocol failure, or failure to write `out`.
-pub fn run<B: Backend>(cli: &Cli, backend: &B, out: &mut impl Write) -> Result<()> {
+///
+/// `confirm` is asked before anything that disconnects the device; it gets a
+/// question and returns whether the user agreed.
+pub fn run<B: Backend>(
+    cli: &Cli,
+    backend: &B,
+    out: &mut impl Write,
+    confirm: &mut dyn FnMut(&str) -> Result<bool>,
+) -> Result<()> {
     match &cli.command {
+        Cmd::Bootloader { yes } => {
+            let pad = Macropad::new(backend.open_first()?);
+            if !yes
+                && !confirm(
+                    "Reboot the macropad into the bootloader? It stops working as a keyboard until flashed or replugged.",
+                )?
+            {
+                bail!("aborted; pass --yes to skip the question");
+            }
+            pad.jump_to_bootloader()?;
+            writeln!(out, "bootloader: jump sent, look for the RPI-RP2 drive")?;
+        }
+        Cmd::Completions { shell } => {
+            clap_complete::generate(*shell, &mut Cli::command(), "padctl", out);
+        }
+        Cmd::Man => clap_mangen::Man::new(Cli::command()).render(out)?,
         Cmd::List => {
             for device in backend.devices()? {
                 writeln!(

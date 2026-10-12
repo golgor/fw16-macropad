@@ -66,11 +66,16 @@ pub struct HidapiTransport {
 }
 
 impl Transport for HidapiTransport {
-    fn exchange(&mut self, request: &Report) -> Result<Report, HidError> {
+    fn send(&mut self, request: &Report) -> Result<(), HidError> {
         // hidapi wants the report id first; QMK Raw HID uses id 0.
         let mut out = [0u8; REPORT_LEN + 1];
         out[1..].copy_from_slice(request.as_bytes());
         self.device.write(&out).map_err(|e| io(&e))?;
+        Ok(())
+    }
+
+    fn exchange(&mut self, request: &Report) -> Result<Report, HidError> {
+        self.send(request)?;
 
         let mut reply = Report::zeroed();
         match self

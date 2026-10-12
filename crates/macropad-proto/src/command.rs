@@ -519,8 +519,11 @@ mod tests {
         );
     }
 
+    /// `0x0B` is Framework's factory command. Only `BootloaderJump` (a
+    /// separate type, see `factory.rs`) may encode it; no `Command` can.
     #[test]
-    fn no_command_encodes_bootloader_jump() {
+    fn only_bootloader_jump_encodes_0x0b() {
+        assert_eq!(crate::BootloaderJump.encode().0[0], 0x0B);
         let key = k(0);
         let rgb = Rgb { r: 0, g: 0, b: 0 };
         let batch = KeyBatch::chunks(&[(key, rgb)]).next().unwrap();

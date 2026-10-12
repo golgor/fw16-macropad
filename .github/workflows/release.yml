@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  padctl:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # git describe for --version
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo build --release --locked -p padctl --target x86_64-unknown-linux-gnu
+      - name: Package
+        run: |
+          set -euo pipefail
+          bin=target/x86_64-unknown-linux-gnu/release/padctl
+          dir="padctl-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu"
+          mkdir -p "dist/$dir/completions"
+          cp "$bin" README.md LICENSE-MIT LICENSE-APACHE contrib/udev/70-fw16-macropad.rules "dist/$dir/"
+          "$bin" man > "dist/$dir/padctl.1"
+          for sh in bash zsh fish; do "$bin" completions "$sh" > "dist/$dir/completions/padctl.$sh"; done
+          tar -C dist -czf "dist/$dir.tar.gz" "$dir"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: padctl
+          path: dist/*.tar.gz
+
+  firmware:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-arm-none-eabi libnewlib-arm-none-eabi
+      - run: firmware/build.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: firmware
+          path: firmware/build/framework_macropad_padctl.uf2
+
+  release:
+    needs: [padctl, firmware]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd dist && sha256sum * > SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

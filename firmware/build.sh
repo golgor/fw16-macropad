@@ -24,6 +24,7 @@ if [[ "$(git -C "$QMK_DIR" rev-parse -q --verify HEAD || true)" != "$COMMIT" ]];
 fi
 git -C "$QMK_DIR" submodule update -q --init --recursive --depth 1
 
+python3 -m pip --version >/dev/null 2>&1 || python3 -m ensurepip >/dev/null
 python3 -m pip install -q qmk -r "$QMK_DIR/requirements.txt" ${PIP_FLAGS:-}
 
 keymap="$QMK_DIR/keyboards/framework/macropad/keymaps/padctl"
