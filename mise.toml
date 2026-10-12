@@ -1,0 +1,55 @@
+# Dev environment and tasks. `mise install`, then `mise tasks` / `mise run <task>`.
+[tools]
+# Same channel as rust-toolchain.toml (rustup reads that file too).
+rust = { version = "stable", components = "rustfmt,clippy" }
+"cargo:cargo-deny" = "0.20"
+# Firmware build: uv provides Python 3.12 and a cached venv for QMK's tooling
+# (firmware/build.sh). arm-none-eabi-gcc/newlib come from the system package
+# manager; build.sh checks for them first.
+uv = "0.13"
+
+[tasks.build]
+description = "Debug build of the workspace"
+run = "cargo build --workspace"
+
+[tasks.build-release]
+description = "Optimised padctl binary (target/release/padctl)"
+run = "cargo build --release --locked -p padctl"
+
+[tasks.test]
+description = "All tests (fake device, no hardware)"
+run = "cargo test --workspace --all-features"
+
+[tasks.lint]
+description = "rustfmt check + clippy pedantic as errors"
+run = [
+  "cargo fmt --all --check",
+  "cargo clippy --workspace --all-targets --all-features -- -D warnings",
+]
+
+[tasks.deny]
+description = "License, ban and source checks"
+run = "cargo deny check licenses bans sources"
+
+[tasks.ci]
+description = "Everything CI runs for the Rust side"
+depends = ["lint", "test", "deny"]
+
+[tasks.install]
+description = "Install padctl into ~/.cargo/bin"
+run = "cargo install --path crates/padctl --locked"
+
+[tasks.firmware]
+description = "Build firmware/build/framework_macropad_padctl.uf2 (needs arm-none-eabi-gcc + newlib)"
+run = "firmware/build.sh"
+sources = ["firmware/keymaps/**/*", "firmware/QMK_PIN", "firmware/build.sh"]
+outputs = ["firmware/build/framework_macropad_padctl.uf2"]
+
+[tasks.bootloader]
+description = "Reboot the macropad into its UF2 bootloader (asks first)"
+run = "cargo run -q -p padctl -- bootloader"
+
+[tasks.flash]
+description = "Build firmware, jump to bootloader, copy .uf2, wait, padctl info"
+depends = ["firmware"]
+run = "scripts/flash.sh"

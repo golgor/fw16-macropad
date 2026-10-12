@@ -6,7 +6,7 @@ Host tooling for the Framework 16 RGB Macropad. Read `README.md` (roadmap) and `
 
 - Build layer by layer. Do not start a layer's work until the previous one is merged. No `todo!()` stubs or placeholder commands; a command exists only when it works.
 - `macropad-proto` is pure: no I/O, no hidapi, no evdev. All byte layouts live there, encode and decode side by side.
-- Never encode or send VIA command `0x0B`. Framework firmware uses it for factory mode and bootloader jump.
+- `0x0B` is Framework's factory command. Only `macropad_proto::BootloaderJump` (sub-command `0xFE`) may encode it, only `Macropad::jump_to_bootloader` sends it, only `padctl bootloader` (with confirmation) calls that. Never add other `0x0B` encoders or a `Command` variant for it.
 - Keys are `KeyId` (physical position 0..24), never keycodes. Construct only via `KeyId::new`.
 - Validate at boundaries (CLI args, HID replies). Trust typed values inside.
 - Hardware access goes through the `Backend` and `Transport` traits. Every new command gets a test against `macropad_hid::fake`.
@@ -16,6 +16,8 @@ Host tooling for the Framework 16 RGB Macropad. Read `README.md` (roadmap) and `
 - Nothing writes EEPROM implicitly; only explicit save commands.
 
 ## Verify
+
+`mise run ci` and `mise run firmware`, or by hand:
 
 ```sh
 cargo fmt --all --check

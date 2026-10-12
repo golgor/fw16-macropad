@@ -14,7 +14,7 @@ env:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -26,7 +26,7 @@ jobs:
       - run: cargo test --workspace --all-features
 
   deny:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
@@ -34,12 +34,12 @@ jobs:
           command: check licenses bans sources
 
   firmware:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
-          python-version: "3.12"
+          cache-dependency-glob: firmware/QMK_PIN
       - name: Install ARM toolchain
         run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-arm-none-eabi libnewlib-arm-none-eabi
       - name: Cache QMK checkout

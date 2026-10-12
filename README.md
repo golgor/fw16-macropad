@@ -41,20 +41,59 @@ flowchart TD
 
 See [docs/adr/](docs/adr/): 0001 layering, 0002 RGB to HSV on the global path, 0003 the per-key channel-0 sub-protocol.
 
+## Dev setup (mise)
+
+```sh
+# Omarchy / Arch (system packages: firmware cross-compiler + C library)
+sudo pacman -S --needed mise arm-none-eabi-gcc arm-none-eabi-newlib make git
+# Debian / Ubuntu equivalent: sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi make git
+mise trust && mise install      # rust stable (+rustfmt, clippy), cargo-deny, uv
+mise tasks                      # list tasks
+```
+
+| Task | What it does |
+|------|--------------|
+| `mise run build` | Debug build of the workspace |
+| `mise run build-release` | Optimised `target/release/padctl` (LTO, 1 codegen unit, stripped) |
+| `mise run test` | All tests against the fake device |
+| `mise run lint` | `cargo fmt --check` + clippy pedantic with `-D warnings` |
+| `mise run deny` | `cargo deny check licenses bans sources` |
+| `mise run ci` | `lint` + `test` + `deny` |
+| `mise run install` | `cargo install --path crates/padctl --locked` |
+| `mise run firmware` | Build `firmware/build/framework_macropad_padctl.uf2` (checks for arm-none-eabi-gcc/newlib first; uv makes a cached Python 3.12 venv for QMK's tooling under `~/.cache/fw16-macropad/venv`) |
+| `mise run bootloader` | `padctl bootloader` (asks first) |
+| `mise run flash` | firmware, bootloader, wait for `RPI-RP2`, copy, sync, wait for the pad, `padctl info` |
+
+Shell completions and man page: `padctl completions zsh > ~/.local/share/zsh/site-functions/_padctl`, `padctl man > ~/.local/share/man/man1/padctl.1`. Release tarballs ship both.
+
 ## Use
 
 ```sh
 sudo cp contrib/udev/70-fw16-macropad.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
-cargo run -p padctl -- list
-cargo run -p padctl -- info                 # via_protocol, per_key support
-cargo run -p padctl -- light color '#ff8000' # all keys, stock firmware
-cargo run -p padctl -- light show
-cargo run -p padctl -- key set -c red 0 1    # needs padctl firmware
-cargo run -p padctl -- key clear --all
+padctl list
+padctl info                 # via_protocol, per_key support
+padctl light color '#ff8000' # all keys, stock firmware
+padctl light show
+padctl key set -c red 0 1    # needs padctl firmware
+padctl key clear --all
+padctl key mode overlay      # or exclusive (default)
 ```
 
 Keys are numbered 0-23 row-major from the top left. Nothing is saved to EEPROM except by `padctl light save`.
+
+## Flashing
+
+Have an external keyboard or the touchpad handy: in bootloader mode the macropad is not a keyboard. Never put the main keyboard and the macropad in bootloader mode at the same time; both show up as `RPI-RP2` and cannot be told apart.
+
+1. **Via padctl (normal path).** `mise run flash` does everything. By hand: `padctl bootloader`, wait for the `RPI-RP2` drive (Omarchy: `udisksctl mount -b /dev/disk/by-label/RPI-RP2` if it is not auto-mounted under `/run/media/$USER/`), copy the `.uf2` onto it, `sync`. The pad reboots by itself; `padctl info` should then show `per_key: v2 (24 keys)`.
+2. **Key-hold fallback** (when padctl cannot reach the pad). Slide the touchpad down until the input deck powers off, hold keys **2 and 6** (numpad legend; padctl keys 17 and 14), slide the touchpad back up. Framework's release notes say keys 1 and 6 (padctl 16 and 14); the community confirms 2+6 for the macropad. Try 2+6 first, then 1+6.
+3. **Num Lock fallback.** Hold **Num Lock** (row 2, column 1; padctl key 4) while inserting the module or re-powering the deck.
+4. **Restore stock.** Download `framework_macropad_default_v0.3.1.uf2` from [FrameworkComputer/qmk_firmware v0.3.1](https://github.com/FrameworkComputer/qmk_firmware/releases/tag/v0.3.1) and flash it the same way (`scripts/flash.sh path/to/framework_macropad_default_v0.3.1.uf2`). `fwupdmgr update` also works for stock firmware.
+
+## Releases
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`: tests, builds `padctl` for `x86_64-unknown-linux-gnu`, builds the `.uf2`, and attaches a tarball (binary, man page, bash/zsh/fish completions, udev rule) plus the `.uf2` and `SHA256SUMS` to a GitHub release.
 
 ## License
 

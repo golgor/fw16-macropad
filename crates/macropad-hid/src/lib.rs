@@ -13,7 +13,7 @@ mod hidapi_backend;
 mod lighting;
 mod per_key;
 
-use macropad_proto::{Command, ProtoError, ProtocolVersion, Report, Response};
+use macropad_proto::{BootloaderJump, Command, ProtoError, ProtocolVersion, Report, Response};
 
 pub use hidapi_backend::HidapiBackend;
 pub use lighting::Lighting;
@@ -71,6 +71,13 @@ pub trait Transport {
     /// # Errors
     /// [`HidError`] on I/O failure or timeout.
     fn exchange(&mut self, request: &Report) -> Result<Report, HidError>;
+
+    /// Send `request` without waiting for a reply. Only for commands after
+    /// which the device cannot answer (the bootloader jump).
+    ///
+    /// # Errors
+    /// [`HidError`] on I/O failure.
+    fn send(&mut self, request: &Report) -> Result<(), HidError>;
 }
 
 /// Finds macropads and opens them.
@@ -128,6 +135,18 @@ impl<T: Transport> Macropad<T> {
     pub(crate) fn request(&mut self, command: Command) -> Result<Response, HidError> {
         let reply = self.transport.exchange(&command.encode())?;
         Ok(command.decode(&reply)?)
+    }
+
+    /// Reboot into the RP2040 UF2 bootloader (Framework factory command
+    /// `0x0B`, sub-command `0xFE`). Consumes the pad: the device leaves USB
+    /// and comes back as an `RPI-RP2` mass-storage drive. No reply is read,
+    /// so a disconnect is the expected outcome, not an error.
+    ///
+    /// # Errors
+    /// [`HidError`] only when the write itself fails.
+    pub fn jump_to_bootloader(mut self) -> Result<T, HidError> {
+        self.transport.send(&BootloaderJump.encode())?;
+        Ok(self.transport)
     }
 
     /// The VIA protocol version the firmware speaks.

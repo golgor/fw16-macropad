@@ -5,8 +5,8 @@
 //! firmware or the padctl keymap (per-key channel 0).
 
 use macropad_proto::{
-    Command, Effect, KEY_COUNT, KeyId, PER_KEY_PROTOCOL_VERSION, PerKeyInfo, ProtocolVersion,
-    Report, Response, Rgb, unhandled,
+    BootloaderJump, Command, Effect, KEY_COUNT, KeyId, PER_KEY_PROTOCOL_VERSION, PerKeyInfo,
+    ProtocolVersion, Report, Response, Rgb, unhandled,
 };
 
 use crate::{Backend, DeviceInfo, DevicePath, HidError, Transport};
@@ -44,6 +44,9 @@ pub struct FakeDevice {
     /// Matrix was switched on only because of overrides; restore off when
     /// the last override clears (mirrors `keymap.c`).
     pub enabled_by_overrides: bool,
+    /// Set once the bootloader jump was sent; the fake then refuses I/O
+    /// like a device that left the bus.
+    pub in_bootloader: bool,
     /// Every request seen, for byte-level assertions.
     pub requests: Vec<Report>,
 }
@@ -68,6 +71,7 @@ impl FakeDevice {
             overrides: None,
             exclusive: true,
             enabled_by_overrides: false,
+            in_bootloader: false,
             requests: Vec::new(),
         }
     }
@@ -209,7 +213,21 @@ impl Backend for FakeBackend {
 }
 
 impl Transport for FakeDevice {
+    fn send(&mut self, request: &Report) -> Result<(), HidError> {
+        if self.in_bootloader {
+            return Err(HidError::Io("device left the bus".into()));
+        }
+        self.requests.push(*request);
+        if *request == BootloaderJump.encode() {
+            self.in_bootloader = true;
+        }
+        Ok(())
+    }
+
     fn exchange(&mut self, request: &Report) -> Result<Report, HidError> {
+        if self.in_bootloader {
+            return Err(HidError::Io("device left the bus".into()));
+        }
         self.requests.push(*request);
         let reply = Command::parse(request)
             .and_then(|command| {
@@ -268,6 +286,15 @@ mod tests {
         pad.set_solid(Rgb { r: 0, g: 0, b: 0 }).unwrap();
         assert_eq!(pad.lighting().unwrap().effect, Effect::OFF);
         assert_eq!(pad.into_transport().saves, 0, "set_solid must not persist");
+    }
+
+    #[test]
+    fn bootloader_jump_is_fire_and_forget() {
+        let dev = Macropad::new(FakeDevice::stock("f"))
+            .jump_to_bootloader()
+            .unwrap();
+        assert!(dev.in_bootloader);
+        assert_eq!(dev.requests, [BootloaderJump.encode()]);
     }
 
     #[test]
