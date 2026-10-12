@@ -37,7 +37,10 @@ impl EvdevSource {
     /// # Errors
     /// [`InputError::Busy`] if any grab fails; nodes already grabbed are
     /// released again, so the call is all-or-nothing.
-    #[allow(clippy::needless_pass_by_value, reason = "layer 3 design stub; the implementation stores it")]
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "layer 3 design stub; the implementation stores it"
+    )]
     pub fn open_grabbed(_devices: &[InputDeviceInfo], keymap: Keymap) -> Result<Self, InputError> {
         todo!("layer 3: open + EVIOCGRAB each node, keep {keymap:?}")
     }

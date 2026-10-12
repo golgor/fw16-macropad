@@ -25,7 +25,10 @@ struct Claim {
 }
 
 /// Every claim, plus the per-key owner index.
-#[allow(dead_code, reason = "layer 3 design: fields used by the implementation")]
+#[allow(
+    dead_code,
+    reason = "layer 3 design: fields used by the implementation"
+)]
 #[derive(Debug, Default)]
 pub struct ClaimTable {
     next_id: u64,

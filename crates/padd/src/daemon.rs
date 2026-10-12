@@ -45,7 +45,10 @@ pub fn socket_path() -> Result<PathBuf, DaemonError> {
 }
 
 /// The daemon, generic over its device seams.
-#[allow(dead_code, reason = "layer 3 design: fields used by the implementation")]
+#[allow(
+    dead_code,
+    reason = "layer 3 design: fields used by the implementation"
+)]
 pub struct Daemon<L, E, U> {
     config: Config,
     claims: ClaimTable,
