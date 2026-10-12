@@ -1,0 +1,15 @@
+[package]
+name = "macropad-input"
+description = "Key events from the Framework 16 RGB Macropad (evdev, not implemented yet)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+macropad-proto.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,21 @@
+[package]
+name = "macropad-hid"
+description = "Raw HID transport for the Framework 16 RGB Macropad, plus an in-memory fake for tests."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+## In-memory fake backend for tests in this and downstream crates.
+fake = []
+
+[dependencies]
+macropad-proto.workspace = true
+thiserror.workspace = true
+hidapi.workspace = true
+
+[lints]
+workspace = true
