@@ -44,8 +44,10 @@ See [docs/adr/](docs/adr/): 0001 layering, 0002 RGB to HSV on the global path, 0
 ## Dev setup (mise)
 
 ```sh
-sudo pacman -S --needed mise arm-none-eabi-gcc arm-none-eabi-newlib   # Omarchy / Arch
-mise trust && mise install      # rust stable (+rustfmt, clippy), cargo-deny, python 3.12 venv
+# Omarchy / Arch (system packages: firmware cross-compiler + C library)
+sudo pacman -S --needed mise arm-none-eabi-gcc arm-none-eabi-newlib make git
+# Debian / Ubuntu equivalent: sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi make git
+mise trust && mise install      # rust stable (+rustfmt, clippy), cargo-deny, uv
 mise tasks                      # list tasks
 ```
 
@@ -58,7 +60,7 @@ mise tasks                      # list tasks
 | `mise run deny` | `cargo deny check licenses bans sources` |
 | `mise run ci` | `lint` + `test` + `deny` |
 | `mise run install` | `cargo install --path crates/padctl --locked` |
-| `mise run firmware` | Build `firmware/build/framework_macropad_padctl.uf2` |
+| `mise run firmware` | Build `firmware/build/framework_macropad_padctl.uf2` (checks for arm-none-eabi-gcc/newlib first; uv makes a cached Python 3.12 venv for QMK's tooling under `~/.cache/fw16-macropad/venv`) |
 | `mise run bootloader` | `padctl bootloader` (asks first) |
 | `mise run flash` | firmware, bootloader, wait for `RPI-RP2`, copy, sync, wait for the pad, `padctl info` |
 

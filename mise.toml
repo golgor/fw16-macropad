@@ -3,12 +3,10 @@
 # Same channel as rust-toolchain.toml (rustup reads that file too).
 rust = { version = "stable", components = "rustfmt,clippy" }
 "cargo:cargo-deny" = "0.20"
-# Firmware build: QMK's Python tooling lives in a project venv, so no
-# --break-system-packages on Arch. arm-none-eabi-gcc/newlib come from pacman.
-python = "3.12"
-
-[env]
-_.python.venv = { path = ".venv", create = true }
+# Firmware build: uv provides Python 3.12 and a cached venv for QMK's tooling
+# (firmware/build.sh). arm-none-eabi-gcc/newlib come from the system package
+# manager; build.sh checks for them first.
+uv = "0.13"
 
 [tasks.build]
 description = "Debug build of the workspace"

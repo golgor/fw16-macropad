@@ -16,9 +16,13 @@ The wire format is documented once, in `crates/macropad-proto/src/perkey.rs`, an
 
 ```sh
 # Arch / Omarchy
-sudo pacman -S --needed arm-none-eabi-gcc arm-none-eabi-newlib python-pip
-PIP_FLAGS=--break-system-packages firmware/build.sh   # or run inside a venv
+sudo pacman -S --needed arm-none-eabi-gcc arm-none-eabi-newlib
+# Debian / Ubuntu: sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi
+mise install          # provides uv
+mise run firmware     # or firmware/build.sh
 ```
+
+`build.sh` checks its prerequisites before cloning anything and prints the package names if one is missing.
 
 CI builds the same `.uf2` and uploads it as the `framework_macropad_padctl` artifact.
 
