@@ -14,11 +14,15 @@ macropad-hid.workspace = true
 macropad-input.workspace = true
 macropad-ipc.workspace = true
 anyhow.workspace = true
+clap.workspace = true
+signal-hook.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
 macropad-hid = { workspace = true, features = ["fake"] }
 macropad-input = { workspace = true, features = ["fake"] }
+macropad-client.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

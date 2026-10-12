@@ -1,29 +1,39 @@
-//! Scripted [`EventSource`] for tests.
+//! Channel-driven [`EventSource`] for tests: the test holds the sender.
 
-use std::collections::VecDeque;
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::Duration;
 
 use crate::{EventSource, InputError, KeyEvent};
 
-/// Replays a script; `None` entries simulate a timeout, and the end of the
-/// script reports [`InputError::Disconnected`].
-#[derive(Debug, Default)]
+/// Events pushed by a test. Dropping the sender reads as
+/// [`InputError::Disconnected`].
+#[derive(Debug)]
 pub struct FakeEvents {
-    script: VecDeque<Option<KeyEvent>>,
+    rx: Receiver<KeyEvent>,
 }
 
 impl FakeEvents {
-    /// A source that yields `script` in order.
+    /// A source and the sender that feeds it.
     #[must_use]
-    pub fn new(script: impl IntoIterator<Item = Option<KeyEvent>>) -> Self {
-        Self {
-            script: script.into_iter().collect(),
-        }
+    pub fn channel() -> (Sender<KeyEvent>, Self) {
+        let (tx, rx) = mpsc::channel();
+        (tx, Self { rx })
     }
 }
 
 impl EventSource for FakeEvents {
-    fn next_event(&mut self, _timeout: Option<Duration>) -> Result<Option<KeyEvent>, InputError> {
-        self.script.pop_front().ok_or(InputError::Disconnected)
+    fn next_event(&mut self, timeout: Option<Duration>) -> Result<Option<KeyEvent>, InputError> {
+        match timeout {
+            Some(t) => match self.rx.recv_timeout(t) {
+                Ok(e) => Ok(Some(e)),
+                Err(RecvTimeoutError::Timeout) => Ok(None),
+                Err(RecvTimeoutError::Disconnected) => Err(InputError::Disconnected),
+            },
+            None => self
+                .rx
+                .recv()
+                .map(Some)
+                .map_err(|_| InputError::Disconnected),
+        }
     }
 }

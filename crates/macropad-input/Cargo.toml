@@ -15,6 +15,7 @@ fake = []
 [dependencies]
 macropad-proto.workspace = true
 thiserror.workspace = true
+evdev.workspace = true
 
 [lints]
 workspace = true

@@ -36,8 +36,11 @@ description = "Everything CI runs for the Rust side"
 depends = ["lint", "test", "deny"]
 
 [tasks.install]
-description = "Install padctl into ~/.cargo/bin"
-run = "cargo install --path crates/padctl --locked"
+description = "Install padctl and padd into ~/.cargo/bin"
+run = [
+  "cargo install --path crates/padctl --locked",
+  "cargo install --path crates/padd --locked",
+]
 
 [tasks.firmware]
 description = "Build firmware/build/framework_macropad_padctl.uf2 (needs arm-none-eabi-gcc + newlib)"

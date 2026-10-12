@@ -1,4 +1,4 @@
-# padd: macropad daemon (layer 3, design). User unit.
+# padd: macropad daemon (layer 3). User unit.
 # Install: cp contrib/systemd/padd.service ~/.config/systemd/user/
 #          systemctl --user daemon-reload && systemctl --user enable --now padd
 [Unit]
@@ -12,10 +12,11 @@ Type=simple
 ExecStart=%h/.cargo/bin/padd
 Restart=on-failure
 RestartSec=2
-# padd only needs its own socket dir and the device nodes (uaccess via udev).
+# padd needs $XDG_RUNTIME_DIR (its socket) and the device nodes (uaccess via
+# udev); nothing else is written. No ProtectHome: it would make /run/user
+# read-only and the socket could not be created.
 NoNewPrivileges=yes
 ProtectSystem=strict
-ProtectHome=read-only
 PrivateTmp=yes
 
 [Install]

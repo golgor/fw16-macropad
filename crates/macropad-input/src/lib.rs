@@ -3,8 +3,6 @@
 //! Finds the macropad's keyboard evdev node (`32ac:0013`), grabs it
 //! exclusively (`EVIOCGRAB`) so no keycode reaches the compositor, and turns
 //! key codes into [`KeyEvent`]s with a [`KeyId`]. Design: ADR 0004.
-//!
-//! Layer 3 design PR: signatures only, bodies are `todo!()`.
 
 mod evdev_source;
 #[cfg(any(test, feature = "fake"))]
@@ -54,7 +52,7 @@ pub enum InputError {
 }
 
 /// A stream of key events. The daemon owns exactly one.
-pub trait EventSource {
+pub trait EventSource: Send {
     /// Wait up to `timeout` (`None`: forever) for the next event.
     /// `Ok(None)` means the timeout passed. Codes the [`Keymap`] does not know
     /// are skipped (and logged), never surfaced.

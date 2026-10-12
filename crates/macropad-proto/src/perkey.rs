@@ -41,7 +41,7 @@ pub(crate) mod value {
 pub(crate) const MAGIC: [u8; 2] = *b"pd";
 
 /// Sub-protocol version this crate speaks.
-pub const PER_KEY_PROTOCOL_VERSION: u8 = 2;
+pub const PER_KEY_PROTOCOL_VERSION: u8 = 3;
 
 /// Bytes before the first `(key, r, g, b)` entry of a `SetMany` request.
 const SET_MANY_HEADER: usize = 4;

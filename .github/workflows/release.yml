@@ -19,14 +19,14 @@ jobs:
           fetch-depth: 0 # git describe for --version
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --workspace --all-features --locked
-      - run: cargo build --release --locked -p padctl --target x86_64-unknown-linux-gnu
+      - run: cargo build --release --locked -p padctl -p padd --target x86_64-unknown-linux-gnu
       - name: Package
         run: |
           set -euo pipefail
           bin=target/x86_64-unknown-linux-gnu/release/padctl
           dir="padctl-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu"
           mkdir -p "dist/$dir/completions"
-          cp "$bin" README.md LICENSE-MIT LICENSE-APACHE contrib/udev/70-fw16-macropad.rules "dist/$dir/"
+          cp "$bin" "${bin%/padctl}/padd" README.md LICENSE-MIT LICENSE-APACHE contrib/udev/70-fw16-macropad.rules contrib/systemd/padd.service "dist/$dir/"
           "$bin" man > "dist/$dir/padctl.1"
           for sh in bash zsh fish; do "$bin" completions "$sh" > "dist/$dir/completions/padctl.$sh"; done
           tar -C dist -czf "dist/$dir.tar.gz" "$dir"

@@ -15,6 +15,9 @@ use macropad_proto::{Effect, KeyId, Rgb};
 #[derive(Debug, Parser)]
 #[command(version = env!("PADCTL_VERSION"), about)]
 pub struct Cli {
+    /// padd socket (default: `$XDG_RUNTIME_DIR/padd.sock`).
+    #[arg(long, global = true, env = "PADD_SOCKET", hide_env_values = true)]
+    pub socket: Option<std::path::PathBuf>,
     /// What to do.
     #[command(subcommand)]
     pub command: Cmd,
@@ -27,12 +30,40 @@ pub enum Cmd {
     List,
     /// Show firmware information for the first attached macropad.
     Info,
-    /// Global lighting for all keys (stock firmware). Not saved unless `light save`.
-    #[command(subcommand)]
-    Light(Light),
+    /// Global lighting for all keys (stock firmware). Not saved unless
+    /// `light save`. Refused while padd runs, unless --force.
+    Light {
+        /// Write even though padd owns the LEDs (padd repaints on its next change).
+        #[arg(long, global = true)]
+        force: bool,
+        /// What to change.
+        #[command(subcommand)]
+        light: Light,
+    },
     /// Per-key colour overrides (needs the padctl firmware). Never saved.
-    #[command(subcommand)]
-    Key(Key),
+    /// Refused while padd runs, unless --force.
+    Key {
+        /// Write even though padd owns the LEDs.
+        #[arg(long, global = true)]
+        force: bool,
+        /// What to change.
+        #[command(subcommand)]
+        key: Key,
+    },
+    /// Claim keys through padd: light them, report presses. Prints the key
+    /// with --once, JSON lines otherwise. Exit codes: 0 pressed, 2 timeout,
+    /// 3 preempted, 4 padd unavailable.
+    Claim(claim::ClaimArgs),
+    /// Pause padd: all lights off, presses ignored, claims kept.
+    Pause,
+    /// Resume padd after `pause`.
+    Resume,
+    /// Show padd state and claims.
+    Status {
+        /// One JSON object instead of text.
+        #[arg(long)]
+        json: bool,
+    },
     /// Reboot the macropad into its UF2 bootloader (RPI-RP2 drive) for
     /// flashing. Uses Framework's factory command 0x0B, like
     /// `qmk_hid via --bootloader`.
@@ -214,8 +245,16 @@ pub fn run<B: Backend>(
                 Err(e) => return Err(e.into()),
             }
         }
-        Cmd::Light(light) => run_light(light, &mut Macropad::new(backend.open_first()?), out)?,
-        Cmd::Key(key) => {
+        Cmd::Light { force, light } => {
+            refuse_if_padd(*force, cli.socket.as_deref())?;
+            run_light(light, &mut Macropad::new(backend.open_first()?), out)?;
+        }
+        Cmd::Claim(args) => claim::run_claim(args, cli.socket.as_deref(), out)?,
+        Cmd::Pause => claim::run_pause(true, cli.socket.as_deref())?,
+        Cmd::Resume => claim::run_pause(false, cli.socket.as_deref())?,
+        Cmd::Status { json } => claim::run_status(*json, cli.socket.as_deref(), out)?,
+        Cmd::Key { force, key } => {
+            refuse_if_padd(*force, cli.socket.as_deref())?;
             let mut pad = Macropad::new(backend.open_first()?);
             let mut leds = pad.per_key()?;
             match key {
@@ -236,6 +275,18 @@ pub fn run<B: Backend>(
                 }
             }
         }
+    }
+    Ok(())
+}
+
+/// Raw LED commands would fight padd's frames.
+fn refuse_if_padd(force: bool, socket: Option<&std::path::Path>) -> Result<()> {
+    let running = match socket {
+        Some(p) => std::os::unix::net::UnixStream::connect(p).is_ok(),
+        None => macropad_client::daemon_running(),
+    };
+    if running && !force {
+        bail!("padd is running and owns the LEDs; use `padctl claim`, `padctl pause`, or --force");
     }
     Ok(())
 }

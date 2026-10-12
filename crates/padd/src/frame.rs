@@ -4,8 +4,8 @@ use macropad_proto::{KEY_COUNT, KeyId, Rgb};
 
 /// Desired colour per key; `None` is "not claimed". With the firmware's
 /// exclusive mode, unclaimed keys are dark while anything is claimed, and an
-/// all-`None` frame clears overrides (pad returns to its global effect, which
-/// padd sets to off at startup: ADR 0004, open question 5).
+/// all-`None` frame clears overrides; padd turns the global effect off, so
+/// the pad is dark with no claims.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Frame(pub [Option<Rgb>; KEY_COUNT as usize]);
 
@@ -23,17 +23,18 @@ impl Frame {
     }
 }
 
-/// Paints frames. The daemon calls it after every claim change and after the
-/// device re-appears, always with the full frame (idempotent, so a reconnect
-/// needs no diffing).
-pub trait LedSink {
-    /// Error type of the device.
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    /// Make the LEDs match `frame`. Implementations may diff against the last
-    /// frame to save reports.
+/// Paints frames. The daemon calls it after every change and periodically
+/// while the device is absent, always with the full frame.
+pub trait LedSink: Send {
+    /// Make the LEDs match `frame`, (re)connecting if needed.
     ///
     /// # Errors
-    /// Device failures; the daemon treats them as "device gone".
-    fn show(&mut self, frame: &Frame) -> Result<(), Self::Error>;
+    /// A description of why the device is unreachable; the daemon reports
+    /// it in `status` and retries.
+    fn show(&mut self, frame: &Frame) -> Result<(), String>;
+
+    /// Called once on shutdown: leave the pad dark and without overrides.
+    fn shutdown(&mut self) {
+        let _ = self.show(&Frame::default());
+    }
 }

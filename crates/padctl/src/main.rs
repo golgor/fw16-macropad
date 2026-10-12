@@ -1,6 +1,7 @@
 //! `padctl` binary entry point: parse args, build the real backend, run.
 
 use std::io::{BufRead, IsTerminal, Write};
+use std::process::ExitCode;
 
 use clap::Parser;
 use macropad_hid::HidapiBackend;
@@ -19,8 +20,19 @@ fn confirm(question: &str) -> anyhow::Result<bool> {
     Ok(matches!(answer.trim(), "y" | "Y" | "yes"))
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> ExitCode {
     let cli = Cli::parse();
-    let backend = HidapiBackend::new()?;
-    run(&cli, &backend, &mut std::io::stdout().lock(), &mut confirm)
+    let result = HidapiBackend::new()
+        .map_err(anyhow::Error::from)
+        .and_then(|backend| run(&cli, &backend, &mut std::io::stdout().lock(), &mut confirm));
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("padctl: {e:#}");
+            match e.downcast_ref::<padctl::claim::Exit>() {
+                Some(exit) => ExitCode::from(exit.code),
+                None => ExitCode::FAILURE,
+            }
+        }
+    }
 }
