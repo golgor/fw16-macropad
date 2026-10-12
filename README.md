@@ -6,7 +6,7 @@ The goal is a macropad whose keys have no fixed meaning. Programs on the host li
 
 ## Status
 
-Layer 1 (skeleton). `padctl list` and `padctl info` work over VIA Raw HID. Nothing else exists yet.
+Layer 2 (raw LED control). Global lighting works on stock firmware (`padctl light ...`). Per-key colour (`padctl key ...`) needs the padctl firmware in [`firmware/`](firmware/README.md). Nothing has been tested on hardware yet.
 
 ## Layer roadmap
 
@@ -39,7 +39,7 @@ flowchart TD
 - `macropad-input` will read key presses by physical position.
 - `padctl` is a thin shell: parse args, pick a backend, call `run`.
 
-See [docs/adr/0001-layered-architecture.md](docs/adr/0001-layered-architecture.md).
+See [docs/adr/](docs/adr/): 0001 layering, 0002 RGB to HSV on the global path, 0003 the per-key channel-0 sub-protocol.
 
 ## Use
 
@@ -47,9 +47,15 @@ See [docs/adr/0001-layered-architecture.md](docs/adr/0001-layered-architecture.m
 sudo cp contrib/udev/70-fw16-macropad.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
 cargo run -p padctl -- list
-cargo run -p padctl -- info
+cargo run -p padctl -- info                 # via_protocol, per_key support
+cargo run -p padctl -- light color '#ff8000' # all keys, stock firmware
+cargo run -p padctl -- light show
+cargo run -p padctl -- key set -c red 0 1    # needs padctl firmware
+cargo run -p padctl -- key clear --all
 ```
+
+Keys are numbered 0-23 row-major from the top left. Nothing is saved to EEPROM except by `padctl light save`.
 
 ## License
 
-MIT OR Apache-2.0, at your option.
+Rust crates: MIT OR Apache-2.0, at your option. `firmware/`: GPL-2.0-or-later.

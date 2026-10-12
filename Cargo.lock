@@ -225,6 +225,7 @@ dependencies = [
  "anyhow",
  "clap",
  "macropad-hid",
+ "macropad-proto",
 ]
 
 [[package]]

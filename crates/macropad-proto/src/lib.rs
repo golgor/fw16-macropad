@@ -5,17 +5,26 @@
 //! [`Command`]s and get typed [`Response`]s back, so the byte layout is decided
 //! in exactly one place.
 //!
+//! Two command sets share the one transport:
+//! - stock VIA lighting on channel 3, global for all keys;
+//! - our per-key sub-protocol on channel 0 (see [`perkey`]), answered only by
+//!   the `padctl` keymap under `firmware/`.
+//!
 //! Safety rule: Framework's firmware repurposes VIA command `0x0B`
 //! (`id_bootloader_jump`) for factory functions, including a jump to the
 //! bootloader. [`Command`] has no variant that encodes to `0x0B`, so it cannot
 //! be sent by accident through this crate.
 
+mod color;
 mod command;
 mod key;
+pub mod perkey;
 mod report;
 
-pub use command::{Command, ProtoError, ProtocolVersion, Response};
+pub use color::Hsv;
+pub use command::{Command, Effect, ProtoError, ProtocolVersion, Response, unhandled};
 pub use key::{InvalidKeyId, KEY_COUNT, KeyId, Rgb};
+pub use perkey::{KeyBatch, MAX_BATCH, PER_KEY_PROTOCOL_VERSION, PerKeyInfo};
 pub use report::{REPORT_LEN, Report};
 
 /// USB vendor id of Framework Computer.
