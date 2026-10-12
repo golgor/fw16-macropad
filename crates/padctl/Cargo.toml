@@ -11,13 +11,19 @@ publish.workspace = true
 [dependencies]
 macropad-hid.workspace = true
 macropad-proto.workspace = true
+macropad-client.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 clap_mangen.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 macropad-hid = { workspace = true, features = ["fake"] }
+macropad-input = { workspace = true, features = ["fake"] }
+padd = { path = "../padd" }
+tempfile.workspace = true
 
 [lints]
 workspace = true

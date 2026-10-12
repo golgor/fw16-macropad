@@ -6,77 +6,43 @@
 #include "factory.h"
 #include "via.h"
 
+/*
+ * padctl v3: one host layer, 24 distinct key codes, no on-pad functions.
+ *
+ * The host (padd) grabs the evdev device and maps each code back to a key
+ * position, so every key must send a code no other key sends, and nothing
+ * may be consumed inside the firmware. Codes are HID usages the desktop never
+ * sees from a normal keyboard; Linux names in brackets. Table mirrored in
+ * crates/macropad-input/src/keymap.rs (Keymap::padctl_v3).
+ *
+ *   key  0- 3  F13  F14  F15  F16       [KEY_F13..KEY_F16]
+ *   key  4- 7  F17  F18  F19  F20       [KEY_F17..KEY_F20]
+ *   key  8-11  F21  F22  F23  F24       [KEY_F21..KEY_F24]
+ *   key 12-15  EXEC HELP MENU SLCT      [KEY_OPEN KEY_HELP KEY_PROPS KEY_FRONT]
+ *   key 16-19  STOP AGIN UNDO CUT       [KEY_STOP KEY_AGAIN KEY_UNDO KEY_CUT]
+ *   key 20-23  COPY PSTE FIND INT1      [KEY_COPY KEY_PASTE KEY_FIND KEY_RO]
+ *
+ * Framework's Num Lock layer switch and the on-pad RGB/backlight keys are
+ * gone on purpose (ADR 0004). _FN stays empty so a stray layer_on is harmless;
+ * _FACTORY is Framework's, used by their factory tooling only.
+ */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-     /*
-     *         ┌────┬────┬────┬────┐
-     *  4 keys │Esc │Calc│ =  │ <- │
-     *         ├────┼────┼────┼────┤
-     *  4 keys │ Num│ /  │ *  │ -  │
-     *         ├────┼────┼────┼────┤
-     *  3 keys │ 7  │ 8  │ 9  │ +  │
-     *         ├────┼────┼────┼────┤
-     *  4 keys │ 4  │ 5  │ 6  │ +  │
-     *         ├────┼────┼────┼────┤
-     *  3 keys │ 1  │ 2  │ 3  │Entr│
-     *         ├────┼────┼────┼────┤
-     *  3 keys │ 0  │ 0  │ .  │Entr│
-     *         └────┴────┴────┴────┴
-     * 21 total
-     */
     [_NUMLOCK] = LAYOUT(
-        KC_ESC,  KC_CALC, KC_EQL,  KC_BSPC,
-        KC_NUM,  KC_PSLS, KC_PAST, KC_PMNS,
-        KC_P7,   KC_P8,   KC_P9,   KC_PPLS,
-        KC_P4,   KC_P5,   KC_P6,   KC_PPLS,
-        KC_P1,   KC_P2,   KC_P3,   KC_PENT,
-        KC_P0,   KC_P0,   KC_PDOT, KC_PENT
+        KC_F13,     KC_F14,   KC_F15,   KC_F16,
+        KC_F17,     KC_F18,   KC_F19,   KC_F20,
+        KC_F21,     KC_F22,   KC_F23,   KC_F24,
+        KC_EXECUTE, KC_HELP,  KC_MENU,  KC_SELECT,
+        KC_STOP,    KC_AGAIN, KC_UNDO,  KC_CUT,
+        KC_COPY,    KC_PASTE, KC_FIND,  KC_INTERNATIONAL_1
     ),
-     /*
-     *         ┌───────┬───────┬───────┬───────┐
-     *  4 keys │ RGB   │ RGB + │ RGB + │ RGB + │
-     *         │Toggle │ Speed │ Hue   │ Sat   │
-     *         ├───────┼───────┼───────┼───────┤
-     *  4 keys │Numlock│ RGB - │ RGB - │ RGB - │
-     *         │       │ Speed │ Hue   │ Sat   │
-     *         ├───────┼───────┼───────┼───────┤
-     *  4 keys │ Home  │   ↑   │ Page  │RGB Nxt│
-     *         │       │       │ Up    │Effect │
-     *         ├───────┼───────┼───────┼───────┤
-     *  4 keys │  ←    │       │   →   │RGB Prv│
-     *         │       │       │       │Effect │
-     *         ├───────┼───────┼───────┼───────┤
-     *  4 keys │ End   │  ↓    │ Page  │ BL    │
-     *         │       │       │ Down  │ Step  │
-     *         ├───────┼───────┼───────┼───────┤
-     *  4 keys │ Insert│ Insert│ Delete│ BL    │
-     *         │       │       │       │ Step  │
-     *         └───────┴───────┴───────┴───────┘
-     * 24 total
-     */
     [_FN] = LAYOUT(
-        RGB_TOG, RGB_SPI, RGB_HUI, RGB_SAI,
-        _______, RGB_SPD, RGB_HUD, RGB_SAD,
-        _______, _______, _______, RGB_MOD,
-        _______, _______, _______, RGB_RMOD,
-        _______, _______, _______, BL_STEP,
-        _______, _______, _______, BL_STEP
+        _______, _______, _______, _______,
+        _______, _______, _______, _______,
+        _______, _______, _______, _______,
+        _______, _______, _______, _______,
+        _______, _______, _______, _______,
+        _______, _______, _______, _______
     ),
-     /* Alphabet
-     *         ┌────┬────┬────┬────┐
-     *  4 keys │ A  │ B  │ C  │ D  │
-     *         ├────┼────┼────┼────┤
-     *  4 keys │ E  │ F  │ G  │ H  │
-     *         ├────┼────┼────┼────┤
-     *  4 keys │ I  │ J  │ K  │ L  │
-     *         ├────┼────┼────┼────┤
-     *  4 keys │ M  │ N  │ O  │ P  │
-     *         ├────┼────┼────┼────┤
-     *  4 keys │ Q  │ R  │ S  │ T  │
-     *         ├────┼────┼────┼────┤
-     *  4 keys │ U  │ V  │ W  │ X  │
-     *         └────┴────┴────┴────┘
-     * 24 total
-     */
     [_FACTORY] = LAYOUT(
         KC_A,    KC_B,    KC_C,    KC_D,
         KC_E,    KC_F,    KC_G,    KC_H,
@@ -87,15 +53,20 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 };
 
-bool led_update_user(led_t led_state) {
-    // Change layer if numlock state changes, either triggered by OS or
-    // by numlock key on this keyboard
-    if (led_state.num_lock) {
-        layer_off(_FN);
-    } else {
-        layer_on(_FN);
+/*
+ * VIA keeps a copy of the keymap in EEPROM and only re-seeds it when its magic
+ * (the build *date*) changes, so a same-day reflash from an older padctl
+ * keymap would keep the old codes. We stamp the user EEPROM word with our
+ * keymap version and force VIA to re-seed when it differs. This runs inside
+ * via_init() before the magic check.
+ */
+#define PADCTL_KEYMAP_STAMP (0x70640000UL | PADCTL_PROTOCOL_VERSION) // "pd" + version
+
+void via_init_kb(void) {
+    if (eeconfig_read_user() != PADCTL_KEYMAP_STAMP) {
+        via_eeprom_set_valid(false);
+        eeconfig_update_user(PADCTL_KEYMAP_STAMP);
     }
-    return true;
 }
 
 void enable_factory_mode(bool enable) {
@@ -108,7 +79,8 @@ void enable_factory_mode(bool enable) {
 /*
  * padctl per-key sub-protocol on VIA custom channel 0.
  *
- * Everything above this comment is Framework's default keymap, unchanged.
+ * Everything above this comment is the v3 host layer (Framework's factory
+ * layer kept).
  * Below, the host can override the colour of individual keys. Overrides are
  * painted after the active RGB matrix effect, live only in RAM, and are never
  * written to EEPROM. Byte layout: crates/macropad-proto/src/perkey.rs.

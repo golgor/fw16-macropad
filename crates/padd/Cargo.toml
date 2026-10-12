@@ -1,0 +1,28 @@
+[package]
+name = "padd"
+description = "Macropad daemon: sole owner of the LEDs and key input; hands out keys to clients over a Unix socket."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+macropad-proto.workspace = true
+macropad-hid.workspace = true
+macropad-input.workspace = true
+macropad-ipc.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+signal-hook.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+macropad-hid = { workspace = true, features = ["fake"] }
+macropad-input = { workspace = true, features = ["fake"] }
+macropad-client.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

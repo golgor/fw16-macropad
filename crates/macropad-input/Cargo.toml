@@ -1,6 +1,6 @@
 [package]
 name = "macropad-input"
-description = "Key events from the Framework 16 RGB Macropad (evdev, not implemented yet)."
+description = "Key events from the Framework 16 RGB Macropad via a grabbed evdev device."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,8 +8,14 @@ repository.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[features]
+## Scripted fake event source for tests in this and downstream crates.
+fake = []
+
 [dependencies]
 macropad-proto.workspace = true
+thiserror.workspace = true
+evdev.workspace = true
 
 [lints]
 workspace = true

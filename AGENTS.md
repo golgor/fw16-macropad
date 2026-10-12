@@ -13,7 +13,9 @@ Host tooling for the Framework 16 RGB Macropad. Read `README.md` (roadmap) and `
 - No GPL dependencies (`qmk-via-api` is GPL-3.0). Reference `FrameworkComputer/qmk_hid` (BSD-3) instead. `cargo deny` enforces this.
 - Firmware lives in `firmware/` under GPL-2.0-or-later, separate from the Rust crates. Channel-0 value ids in `keymap.c` and `macropad-proto/src/perkey.rs` must change together (ADR 0003).
 - Never flash a device from automation. Flashing is Robert's manual step.
-- Nothing writes EEPROM implicitly; only explicit save commands.
+- Nothing writes EEPROM implicitly; only explicit save commands. The one exception is the firmware's once-per-version VIA keymap reset stamp (`via_init_kb`, see firmware/README).
+- `padd` is the only process touching the device while it runs. Clients go through `macropad-client`/the socket. `padctl light`/`key` refuse unless `--force`. Socket wire types live only in `macropad-ipc`, and every doc example in `docs/protocol.md` must round-trip in its tests.
+- Every new daemon behaviour gets a fake end-to-end test (`crates/padd/tests/e2e.rs`, fake input + fake LEDs).
 
 ## Verify
 

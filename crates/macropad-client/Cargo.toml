@@ -1,0 +1,17 @@
+[package]
+name = "macropad-client"
+description = "Client for padd: claim macropad keys, get presses."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+macropad-proto.workspace = true
+macropad-ipc.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

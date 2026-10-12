@@ -1,7 +1,8 @@
 # Framework Laptop 16 RGB Macropad (32ac:0013): give the logged-in seat user
-# access to its hidraw nodes, so padctl can speak VIA Raw HID without root.
-# Scoped to this one device. evdev access is added later with the input layer.
+# access to its hidraw nodes (padctl/padd speak VIA Raw HID) and its input event
+# nodes (padd grabs them to read key presses), without root. Scoped to this device.
 #
 # Install: sudo cp 70-fw16-macropad.rules /etc/udev/rules.d/
 #          sudo udevadm control --reload && sudo udevadm trigger
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="32ac", ATTRS{idProduct}=="0013", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{idVendor}=="32ac", ATTRS{idProduct}=="0013", TAG+="uaccess"
