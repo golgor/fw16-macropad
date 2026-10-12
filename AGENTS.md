@@ -11,7 +11,9 @@ Host tooling for the Framework 16 RGB Macropad. Read `README.md` (roadmap) and `
 - Validate at boundaries (CLI args, HID replies). Trust typed values inside.
 - Hardware access goes through the `Backend` and `Transport` traits. Every new command gets a test against `macropad_hid::fake`.
 - No GPL dependencies (`qmk-via-api` is GPL-3.0). Reference `FrameworkComputer/qmk_hid` (BSD-3) instead. `cargo deny` enforces this.
-- Firmware, if added, lives in `firmware/` under GPL-2.0-or-later, separate from the Rust crates.
+- Firmware lives in `firmware/` under GPL-2.0-or-later, separate from the Rust crates. Channel-0 value ids in `keymap.c` and `macropad-proto/src/perkey.rs` must change together (ADR 0003).
+- Never flash a device from automation. Flashing is Robert's manual step.
+- Nothing writes EEPROM implicitly; only explicit save commands.
 
 ## Verify
 
@@ -20,4 +22,5 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo deny check licenses bans sources
+firmware/build.sh   # needs arm-none-eabi-gcc; CI runs it
 ```

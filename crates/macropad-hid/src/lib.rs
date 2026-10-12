@@ -10,10 +10,14 @@
 #[cfg(any(test, feature = "fake"))]
 pub mod fake;
 mod hidapi_backend;
+mod lighting;
+mod per_key;
 
 use macropad_proto::{Command, ProtoError, ProtocolVersion, Report, Response};
 
 pub use hidapi_backend::HidapiBackend;
+pub use lighting::Lighting;
+pub use per_key::PerKeyLeds;
 
 /// Opaque handle naming one device interface, as given by [`Backend::devices`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,6 +52,10 @@ pub enum HidError {
     /// The OS HID layer failed.
     #[error("HID I/O failed: {0}")]
     Io(String),
+    /// The firmware does not speak the per-key sub-protocol (stock firmware,
+    /// or a version this build does not know).
+    #[error("per-key LEDs need the padctl firmware (firmware/README.md); {0}")]
+    NoPerKey(String),
     /// The reply was not a valid answer.
     #[error(transparent)]
     Protocol(#[from] ProtoError),
@@ -107,7 +115,17 @@ impl<T: Transport> Macropad<T> {
         Self { transport }
     }
 
-    fn request(&mut self, command: Command) -> Result<Response, HidError> {
+    /// Give back the transport, e.g. to inspect a fake in tests.
+    pub fn into_transport(self) -> T {
+        self.transport
+    }
+
+    /// Borrow the transport.
+    pub fn transport(&self) -> &T {
+        &self.transport
+    }
+
+    pub(crate) fn request(&mut self, command: Command) -> Result<Response, HidError> {
         let reply = self.transport.exchange(&command.encode())?;
         Ok(command.decode(&reply)?)
     }
@@ -119,6 +137,13 @@ impl<T: Transport> Macropad<T> {
     pub fn protocol_version(&mut self) -> Result<ProtocolVersion, HidError> {
         match self.request(Command::GetProtocolVersion)? {
             Response::ProtocolVersion(v) => Ok(v),
+            other => Err(unexpected(other)),
         }
     }
+}
+
+/// A reply that decoded but does not fit the command. `decode` never produces
+/// one; this keeps the matches total without panicking.
+pub(crate) fn unexpected(response: Response) -> HidError {
+    HidError::Io(format!("unexpected reply {response:?}"))
 }

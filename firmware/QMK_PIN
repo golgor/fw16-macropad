@@ -1,0 +1,5 @@
+# FrameworkComputer/qmk_firmware, branch fl16-2025 (macropad firmware v0.3.1).
+# Bump by changing COMMIT and rebuilding; CI compiles against exactly this.
+REPO=https://github.com/FrameworkComputer/qmk_firmware
+BRANCH=fl16-2025
+COMMIT=11c49dbeef03c853bbd3a783810d4ba7d29cb287
